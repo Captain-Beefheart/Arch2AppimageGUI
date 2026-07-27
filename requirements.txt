@@ -1,0 +1,8 @@
+# Arch2AppimageGUI runs on the Python standard library alone.
+#
+# Optional: on Python < 3.14 the stdlib tarfile can't read .pkg.tar.zst.
+# Arch2AppimageGUI falls back to the `zstandard` module if installed, and then
+# to `bsdtar`/`zstd` on PATH. Install this only if you're on older Python and
+# don't have bsdtar/zstd available:
+#
+#   zstandard>=0.21

@@ -1,0 +1,13 @@
+# Keep everything LF in the repo so shell scripts run on Linux CI and inside the
+# AppImage, regardless of the checkout platform.
+* text=auto eol=lf
+
+# Shell scripts must be LF.
+*.sh text eol=lf
+run.sh text eol=lf
+packaging/build-appimage.sh text eol=lf
+
+# Binary assets — never touch line endings.
+*.png binary
+*.ico binary
+*.AppImage binary

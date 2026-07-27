@@ -1,0 +1,105 @@
+name: release-artifacts
+
+# Build the two self-contained binaries and attach them to a release:
+#   - Ubuntu  : Arch2AppimageGUI-x86_64.AppImage  (bundles Python + Tk)
+#   - Windows : Arch2AppimageGUI.exe              (PyInstaller one-file GUI)
+#
+# On a published release the artifacts are uploaded to that release. On a manual
+# run (workflow_dispatch) they are always uploaded as build artifacts so the
+# build can be verified before cutting a real release; pass a `tag` to also
+# attach them to an existing release.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to attach artifacts to (optional)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  appimage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            python3 python3-tk python3-pip tcl tk \
+            wget file desktop-file-utils librsvg2-bin xvfb
+
+      - name: Build AppImage
+        run: sh packaging/build-appimage.sh
+
+      - name: Smoke-test the AppImage (headless)
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          chmod +x Arch2AppimageGUI-x86_64.AppImage
+          file Arch2AppimageGUI-x86_64.AppImage
+          ./Arch2AppimageGUI-x86_64.AppImage --version
+          ./Arch2AppimageGUI-x86_64.AppImage repos
+          xvfb-run -a ./Arch2AppimageGUI-x86_64.AppImage selftest
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Arch2AppimageGUI-AppImage
+          path: Arch2AppimageGUI-x86_64.AppImage
+
+      - name: Attach to release
+        if: ${{ github.event_name == 'release' || github.event.inputs.tag != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+        run: gh release upload "$TAG" Arch2AppimageGUI-x86_64.AppImage --clobber
+
+  windows-exe:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up MSYS2 (same toolchain as local builds)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: >-
+            mingw-w64-x86_64-python
+            mingw-w64-x86_64-tk
+            mingw-w64-x86_64-python-pip
+            mingw-w64-x86_64-pyinstaller
+
+      - name: Build Arch2AppimageGUI.exe
+        run: |
+          python -m PyInstaller --onefile --windowed --name Arch2AppimageGUI \
+            --paths . --distpath dist --workpath build_pyi --specpath build_pyi \
+            --noconfirm packaging/pyinstaller_entry.py
+
+      - name: Sanity-check artifact
+        run: |
+          file dist/Arch2AppimageGUI.exe
+          ls -lh dist/Arch2AppimageGUI.exe
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Arch2AppimageGUI-exe
+          path: dist/Arch2AppimageGUI.exe
+
+      # gh isn't on the minimal MSYS2 PATH; use the runner's pre-installed CLI.
+      - name: Attach to release
+        if: ${{ github.event_name == 'release' || github.event.inputs.tag != '' }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+        run: gh release upload "$env:TAG" dist/Arch2AppimageGUI.exe --clobber
