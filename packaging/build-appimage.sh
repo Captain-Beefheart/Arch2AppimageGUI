@@ -84,8 +84,10 @@ for d in /usr/share/tcltk/tcl8.* /usr/share/tcltk/tk8.* \
 done
 
 # --- 4. zstandard, so .pkg.tar.zst extraction works on Python < 3.14 ----------
-"$PYBIN" -m pip install --no-compile --no-input \
+"$PYBIN" -m pip install --no-compile --no-input --break-system-packages \
     --target "$APPDIR/usr/lib/python$PYVER/site-packages" "zstandard>=0.21" \
+    || "$PYBIN" -m pip install --no-compile --no-input \
+        --target "$APPDIR/usr/lib/python$PYVER/site-packages" "zstandard>=0.21" \
     || echo "!! warning: could not bundle zstandard (extraction will fall back to bsdtar/zstd)"
 
 # --- 5. the application ------------------------------------------------------

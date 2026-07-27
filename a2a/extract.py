@@ -22,6 +22,26 @@ class ExtractError(RuntimeError):
     pass
 
 
+def zst_backend() -> str | None:
+    """Name of the available .pkg.tar.zst extraction backend, or None.
+
+    Mirrors the fallback order used by extract(). Used by the CLI selftest to
+    confirm a packaged build can actually unpack packages.
+    """
+    if "zst" in getattr(tarfile.TarFile, "OPEN_METH", {}):
+        return "tarfile-native"
+    try:
+        import zstandard  # noqa: F401
+        return "zstandard"
+    except ImportError:
+        pass
+    if shutil.which("bsdtar"):
+        return "bsdtar"
+    if shutil.which("zstd") and shutil.which("tar"):
+        return "zstd-cli"
+    return None
+
+
 def _safe_extract(tar: tarfile.TarFile, dest: str) -> None:
     # 'tar' filter (py3.12+) keeps symlinks/hardlinks but sanitizes paths.
     try:

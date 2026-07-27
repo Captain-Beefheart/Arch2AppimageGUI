@@ -73,6 +73,13 @@ def cmd_selftest(args, cfg) -> int:
     except Exception as exc:  # noqa: BLE001
         print(f"tkinter: FAILED ({exc})", file=sys.stderr)
         return 1
+    backend = extract.zst_backend()
+    if backend:
+        print(f"zst extraction backend: {backend}")
+    else:
+        print("zst extraction backend: NONE — cannot unpack .pkg.tar.zst",
+              file=sys.stderr)
+        return 1
     print("selftest ok")
     return 0
 
